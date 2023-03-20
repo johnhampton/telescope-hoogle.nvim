@@ -1,16 +1,17 @@
-local actions = require'telescope.actions'
+local actions = require 'telescope.actions'
 local actions_state = require 'telescope.actions.state'
-local conf = require'telescope.config'.values
-local entry_display = require'telescope.pickers.entry_display'
-local finders = require'telescope.finders'
-local log = require'telescope.log'
-local pickers = require'telescope.pickers'
-local previewers = require'telescope.previewers'
-local utils = require'telescope.utils'
+local conf = require 'telescope.config'.values
+local entry_display = require 'telescope.pickers.entry_display'
+local finders = require 'telescope.finders'
+local log = require 'telescope.log'
+local pickers = require 'telescope.pickers'
+local previewers = require 'telescope.previewers'
+local sorters = require 'telescope.sorters'
+local utils = require 'telescope.utils'
 
-local json = require'telescope-hoogle.json'
-local tsrender = require'telescope-hoogle.treesitter'
-local html = require'telescope-hoogle.html'
+local json = require 'telescope-hoogle.json'
+local tsrender = require 'telescope-hoogle.treesitter'
+local html = require 'telescope-hoogle.html'
 
 local styleTable = {}
 styleTable.pre = 'Comment'
@@ -22,15 +23,15 @@ local M = {}
 M.ext_config = {}
 
 local function splitToLines(input, delimiter)
-  local result = { }
-  local from  = 1
-  local delim_from, delim_to = string.find( input, delimiter, from  )
+  local result               = {}
+  local from                 = 1
+  local delim_from, delim_to = string.find(input, delimiter, from)
   while delim_from do
-    table.insert( result, string.sub( input, from , delim_from-1 ) )
-    from  = delim_to + 1
-    delim_from, delim_to = string.find( input, delimiter, from  )
+    table.insert(result, string.sub(input, from, delim_from - 1))
+    from                 = delim_to + 1
+    delim_from, delim_to = string.find(input, delimiter, from)
   end
-  table.insert( result, string.sub( input, from  ) )
+  table.insert(result, string.sub(input, from))
   return result
 end
 
@@ -47,14 +48,14 @@ local function tokenizeHtml(input)
       local textR1 = splitToLines(previous, delimiter)
       for _, v in pairs(textR1) do
         if #v ~= 0 then
-          table.insert( result, { prev = v })
+          table.insert(result, { prev = v })
           if #textR1 > 1 then table.insert(result, { nl = true }) end
         end
       end
       -- process tag with newlines inside
       local tagR1 = splitToLines(tagVal, delimiter)
       for _, v in pairs(tagR1) do
-        table.insert(result , { tag = tag, tagValue = v })
+        table.insert(result, { tag = tag, tagValue = v })
         if #tagR1 > 1 then table.insert(result, { nl = true }) end
       end
     else
@@ -69,7 +70,7 @@ local function renderHtmlForBuffer(input, styleTable)
   local currentLine = 0
   local textResult = {}
   local highLights = {}
-  for _, v  in pairs(input) do
+  for _, v in pairs(input) do
     if v.prev ~= nil then
       fullText = fullText .. v.prev
     elseif (v.nl ~= nil and v.nl == true) then
@@ -111,8 +112,8 @@ local function previewEntry(entry, buffer)
 
   --log.debug("got lines: "..vim.inspect(buf_lines))
   vim.api.nvim_buf_set_lines(buffer, 0, -1, true, buf_lines)
-  for _,v in pairs(highlightTable) do
-    log.debug("hl: "..vim.inspect(v))
+  for _, v in pairs(highlightTable) do
+    log.debug("hl: " .. vim.inspect(v))
     vim.api.nvim_buf_add_highlight(buffer, -1, v.type, v.line, v.beginPos, v.endPos)
   end
 end
@@ -128,27 +129,29 @@ end
  .type -> String
  .url -> String -- https://hackage.haskell.org/package/base/docs/Prelude.html#v:map
 ]]
-
 local function gen_from_hoogle(_)
-  local displayer = entry_display.create{
+  local displayer = entry_display.create {
     separator = ' ',
     items = {
-      {width = 25, right_justify = false}, -- Module
-      {width = 20, right_justify = true},  -- Package
-      {remaining = true}, -- type
+      { width = 25,      right_justify = false }, -- Module
+      { width = 20,      right_justify = true },  -- Package
+      { remaining = true },                       -- type
     },
   }
 
   local function make_display(entry)
     --log.debug("make_display:entry: "..vim.inspect(entry))
-    return displayer{
-      {entry.module_name, 'HaskellModule'},
-      {entry.package, 'HaskellPackage'},
+    return displayer {
+      { entry.module_name, 'HaskellModule' },
+      { entry.package,     'HaskellPackage' },
       entry.ordinal,
     }
   end
 
   return function(line)
+    if line == "No results found" then
+      return {}
+    end
     local v = json.decode(line)
     local obj = {
       value = v['docs'] or "",
@@ -189,7 +192,7 @@ local function prompt_fn(opts)
     if not prompt or string.len(prompt) < 2 then
       return nil
     end
-    return { opts.bin, '--jsonl', '--count=20', '-q',  prompt}
+    return { opts.bin, '--jsonl', '--count=50', '-q', prompt }
   end
 
   return hoogle_cmd
@@ -205,7 +208,7 @@ M.list = function(opts)
   pickers.new(opts, {
     prompt_title = 'Hoogle query',
     finder = finders.new_job(prompt_fn(opts), opts.entry_maker, 20, opts.cwd),
-    sorter = conf.file_sorter(opts),
+    sorter = sorters.get_fuzzy_file(opts),
     previewer = previewers.display_content.new(opts),
     attach_mappings = function(buf, map)
       map('i', '<CR>', function()
