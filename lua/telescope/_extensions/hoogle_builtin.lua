@@ -157,7 +157,7 @@ local function gen_from_hoogle(_)
       value = v['docs'] or "",
       module_name = v['module']['name'] or "",
       type_sig = v['item'],
-      package = v['package']['name'] or string.gsub(v['item'], 'package ', '', 1),
+      package = v['package']['name'] or "",
       ordinal = v['item'],
       url = v['url'] or "",
       display = make_display,
